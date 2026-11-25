@@ -68,6 +68,10 @@ async def _errors_for(
     except RelayConnectionError, RelayTimeoutError:
         return {"base": "cannot_connect"}
     except RelayError as err:
+        if err.code == "redirect":
+            return {"base": "redirected"}
+        if err.code in ("unexpected_response", "bad_response"):
+            return {"base": "not_relay"}
         if err.status == 403:
             return {"base": "not_allowed"}
         return {"base": "relay_error"}

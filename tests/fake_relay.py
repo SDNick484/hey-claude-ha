@@ -65,6 +65,7 @@ class FakeRelay:
         self._url = url
         self._turns: deque[Outcome] = deque()
         self.health_ok = True
+        self.health_outcome: Outcome | None = None
         self.end_ok = True
         self.ended: list[str] = []
         mock.get(f"{url}/healthz", side_effect=self._health)
@@ -101,12 +102,18 @@ class FakeRelay:
     ) -> AiohttpClientMockResponse:
         if not self.health_ok:
             raise ClientConnectionError("relay down")
+        if self.health_outcome is not None:
+            return self._respond(self.health_outcome, method, url)
         return AiohttpClientMockResponse(method, url, text="ok")
 
     async def _turn(
         self, method: str, url: URL, data: Any
     ) -> AiohttpClientMockResponse:
         outcome = self._turns.popleft() if self._turns else Reply("ok")
+        return self._respond(outcome, method, url)
+
+    @staticmethod
+    def _respond(outcome: Outcome, method: str, url: URL) -> AiohttpClientMockResponse:
         match outcome:
             case Reply():
                 return AiohttpClientMockResponse(

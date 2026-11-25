@@ -5,7 +5,8 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from aiohttp import ClientConnectionError, ServerDisconnectedError
+from aiohttp import ClientConnectionError, ClientSession, ServerDisconnectedError, web
+from aiohttp.test_utils import TestServer
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -317,3 +318,81 @@ def test_normalize_url_rejects(raw: str) -> None:
     """Only http and https URLs with a host are accepted."""
     with pytest.raises(ValueError):
         normalize_url(raw)
+
+
+async def test_turn_non_access_redirect_is_not_auth_error(
+    client: RelayClient, fake_relay: FakeRelay
+) -> None:
+    """A redirect that is not Access's login page is a redirect, not a bad token."""
+    fake_relay.queue_turn(
+        Raw(308, "", headers={"Location": "https://relay.example.com/v1/turn"})
+    )
+
+    with pytest.raises(RelayError) as err:
+        await client.turn("hello")
+
+    assert type(err.value) is RelayError
+    assert err.value.code == "redirect"
+    assert err.value.status == 308
+
+
+async def test_turn_access_path_redirect_is_auth_error(
+    client: RelayClient, fake_relay: FakeRelay
+) -> None:
+    """A redirect to Access's login path on the same host is a refused token."""
+    fake_relay.queue_turn(
+        Raw(302, "", headers={"Location": "/cdn-cgi/access/login/relay.example.com"})
+    )
+
+    with pytest.raises(RelayAuthError):
+        await client.turn("hello")
+
+
+async def test_turn_undecodable_body_is_relay_error(
+    client: RelayClient, fake_relay: FakeRelay
+) -> None:
+    """A body that does not decode is a bad response, not a stray exception."""
+    fake_relay.queue_turn(Raw(200, "é", "application/json; charset=ascii"))
+
+    with pytest.raises(RelayError) as err:
+        await client.turn("hello")
+
+    assert err.value.code == "bad_response"
+
+
+async def test_turn_missing_expect_secret_is_bad_response(
+    client: RelayClient, fake_relay: FakeRelay
+) -> None:
+    """The safety flag must be present; a reply without it is not trusted."""
+    fake_relay.queue_turn(
+        Raw(200, '{"conversation_id": "c", "reply": "hi"}', "application/json")
+    )
+
+    with pytest.raises(RelayError) as err:
+        await client.turn("hello")
+
+    assert err.value.code == "bad_response"
+
+
+async def test_redirects_are_not_followed(socket_enabled: None) -> None:
+    """Against a real server, Access's login redirect is reported, not followed.
+
+    If the client followed it, the login page's 200 HTML would come back as a
+    bad response instead of a refused token.
+    """
+
+    async def turn(request: web.Request) -> web.Response:
+        raise web.HTTPFound("/cdn-cgi/access/login/relay")
+
+    async def login(request: web.Request) -> web.Response:
+        return web.Response(text="<html>Sign in</html>", content_type="text/html")
+
+    app = web.Application()
+    app.router.add_post("/v1/turn", turn)
+    app.router.add_route("*", "/cdn-cgi/access/login/relay", login)
+    async with TestServer(app, host="127.0.0.1") as server, ClientSession() as session:
+        client = RelayClient(
+            session, str(server.make_url("")), TEST_CLIENT_ID, TEST_SECRET
+        )
+        with pytest.raises(RelayAuthError):
+            await client.turn("hello")

@@ -27,6 +27,7 @@ from .conftest import TEST_CLIENT_ID, TEST_SECRET, TEST_URL
 from .fake_relay import Error, FakeRelay, Raise, Raw
 
 OTHER_URL = "https://other.example.com"
+ACCESS_LOGIN = "https://example.cloudflareaccess.com/cdn-cgi/access/login/relay"
 
 USER_INPUT = {
     CONF_URL: TEST_URL + "/",
@@ -85,6 +86,13 @@ def _health_down(relay: FakeRelay) -> None:
     relay.health_ok = False
 
 
+def _health(outcome: Any) -> Callable[[FakeRelay], None]:
+    def apply(relay: FakeRelay) -> None:
+        relay.health_outcome = outcome
+
+    return apply
+
+
 def _queue(outcome: Any) -> Callable[[FakeRelay], None]:
     return lambda relay: relay.queue_turn(outcome)
 
@@ -93,13 +101,31 @@ def _queue(outcome: Any) -> Callable[[FakeRelay], None]:
     ("break_relay", "url", "error"),
     [
         (_health_down, TEST_URL, "cannot_connect"),
-        (_queue(Raw(302, "")), TEST_URL, "invalid_auth"),
+        (
+            _queue(Raw(302, "", headers={"Location": ACCESS_LOGIN})),
+            TEST_URL,
+            "invalid_auth",
+        ),
         (_queue(Raw(403, "<html>")), TEST_URL, "invalid_auth"),
         (_queue(Error(401, "unauthorized")), TEST_URL, "invalid_auth"),
         (_queue(Error(403, "unauthorized")), TEST_URL, "not_allowed"),
         (_queue(Raise(TimeoutError())), TEST_URL, "cannot_connect"),
         (_queue(Error(500, "internal")), TEST_URL, "relay_error"),
         (lambda relay: None, "relay.example.com", "invalid_url"),
+        (
+            _health(Raw(302, "", headers={"Location": ACCESS_LOGIN})),
+            TEST_URL,
+            "invalid_auth",
+        ),
+        (_health(Raw(403, "<html>Forbidden</html>")), TEST_URL, "invalid_auth"),
+        (
+            _health(Raw(301, "", headers={"Location": TEST_URL + "/healthz"})),
+            TEST_URL,
+            "redirected",
+        ),
+        (_health(Raw(404, "<html>Not found</html>")), TEST_URL, "not_relay"),
+        (_queue(Raw(404, "<html>Not found</html>")), TEST_URL, "not_relay"),
+        (_queue(Raw(200, "{}", "application/json")), TEST_URL, "not_relay"),
     ],
     ids=[
         "health-down",
@@ -110,6 +136,12 @@ def _queue(outcome: Any) -> Callable[[FakeRelay], None]:
         "timeout",
         "relay-error",
         "bad-url",
+        "health-access-redirect",
+        "health-access-html",
+        "health-http-redirect",
+        "health-not-found",
+        "turn-not-found",
+        "turn-malformed",
     ],
 )
 async def test_user_flow_errors(
@@ -131,6 +163,7 @@ async def test_user_flow_errors(
     assert result["errors"] == {"base": error}
 
     fake_relay.health_ok = True
+    fake_relay.health_outcome = None
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], USER_INPUT
     )

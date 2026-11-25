@@ -112,11 +112,26 @@ def _error_from(data: Any) -> tuple[str, str | None] | None:
     return code, spoken if isinstance(spoken, str) and spoken.strip() else None
 
 
-def _raise_for_failure(status: int, data: Any) -> None:
+def _is_access_login(location: str | None) -> bool:
+    """Return whether a redirect points at Cloudflare Access's login page."""
+    if not location:
+        return False
+    try:
+        target = URL(location)
+    except ValueError:
+        return False
+    host = target.host or ""
+    return host.endswith(".cloudflareaccess.com") or "/cdn-cgi/access/" in target.path
+
+
+def _raise_for_failure(status: int, data: Any, location: str | None) -> None:
     """Raise the error a non-success response stands for."""
     if 300 <= status < 400:
-        # Access redirects to its login page when it refuses a token.
-        raise RelayAuthError("unauthorized", status=status)
+        # Access redirects to its login page when it refuses a token. Any
+        # other redirect (http to https, a moved relay) is not about the token.
+        if _is_access_login(location):
+            raise RelayAuthError("unauthorized", status=status)
+        raise RelayError("redirect", status=status)
     if (error := _error_from(data)) is not None:
         code, spoken = error
         if status == 401:
@@ -134,7 +149,7 @@ def _parse_reply(data: Any) -> TurnReply:
         raise RelayError("bad_response", status=200)
     conversation_id = data.get("conversation_id")
     reply = data.get("reply")
-    expect_secret = data.get("expect_secret", False)
+    expect_secret = data.get("expect_secret")
     tools_used = data.get("tools_used", [])
     if (
         not isinstance(conversation_id, str)
@@ -181,8 +196,8 @@ class RelayClient:
         name: str,
         budget: float,
         body: dict[str, Any] | None = None,
-    ) -> tuple[int, Any]:
-        """Send one request and return (status, parsed JSON or None)."""
+    ) -> tuple[int, Any, str | None]:
+        """Send one request and return (status, parsed JSON or None, Location)."""
         loop = asyncio.get_running_loop()
         started = loop.time()
         try:
@@ -195,7 +210,8 @@ class RelayClient:
                     allow_redirects=False,
                 ) as response:
                     status = response.status
-                    text = await response.text()
+                    location = response.headers.get("Location")
+                    text = await response.text(errors="replace")
         except TimeoutError as err:
             _LOGGER.debug("Relay %s timed out after %.1fs", name, budget)
             raise RelayTimeoutError from err
@@ -205,15 +221,17 @@ class RelayClient:
         _LOGGER.debug(
             "Relay %s answered %s in %.1fs", name, status, loop.time() - started
         )
-        return status, _loads(text)
+        return status, _loads(text), location
 
     async def health(self) -> None:
         """Check that the relay answers its health endpoint."""
-        status, data = await self._send("GET", "/healthz", "health", SHORT_TIMEOUT)
+        status, data, location = await self._send(
+            "GET", "/healthz", "health", SHORT_TIMEOUT
+        )
         if status == 200:
             return
         try:
-            _raise_for_failure(status, data)
+            _raise_for_failure(status, data, location)
         except _GatewayError as err:
             raise RelayConnectionError(err.status) from err
 
@@ -247,12 +265,12 @@ class RelayClient:
             if remaining <= 0:
                 raise RelayTimeoutError
             try:
-                status, data = await self._send(
+                status, data, location = await self._send(
                     "POST", "/v1/turn", "turn", remaining, body
                 )
                 if status == 200:
                     return _parse_reply(data)
-                _raise_for_failure(status, data)
+                _raise_for_failure(status, data, location)
             except RelayConnectionError:
                 if attempt == 2:
                     raise
@@ -264,7 +282,7 @@ class RelayClient:
 
     async def end_conversation(self, conversation_id: str) -> None:
         """Ask the relay to forget a conversation."""
-        status, data = await self._send(
+        status, data, location = await self._send(
             "POST",
             f"/v1/conversations/{quote(conversation_id, safe='')}/end",
             "end",
@@ -273,6 +291,6 @@ class RelayClient:
         if 200 <= status < 300:
             return
         try:
-            _raise_for_failure(status, data)
+            _raise_for_failure(status, data, location)
         except _GatewayError as err:
             raise RelayConnectionError(err.status) from err

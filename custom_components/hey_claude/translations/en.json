@@ -47,8 +47,10 @@
       "invalid_auth": "Cloudflare Access or the relay refused the service token.",
       "not_allowed": "The relay accepted the token but it is not allowed any profile.",
       "invalid_url": "Enter an http or https URL.",
-      "relay_error": "The relay reached Claude but the test turn failed. Check the relay's logs.",
-      "unknown": "Unexpected error. Check the Home Assistant log."
+      "relay_error": "The relay answered the test turn with an error. Check the relay's logs.",
+      "unknown": "Unexpected error. Check the Home Assistant log.",
+      "redirected": "The address redirects somewhere else. Enter the final address, usually starting with https.",
+      "not_relay": "Something answered at this address, but not like a hey-claude-relay. Check the URL."
     },
     "abort": {
       "already_configured": "This relay is already set up.",
