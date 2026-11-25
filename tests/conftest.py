@@ -9,6 +9,9 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMocker,
+)
 
 from custom_components.hey_claude.const import (
     CONF_CLIENT_ID,
@@ -16,6 +19,8 @@ from custom_components.hey_claude.const import (
     CONF_URL,
     DOMAIN,
 )
+
+from .fake_relay import FakeRelay
 
 TEST_URL = "https://relay.example.com"
 TEST_CLIENT_ID = "test-client-id.access"
@@ -49,3 +54,9 @@ def mock_config_entry() -> MockConfigEntry:
             CONF_CLIENT_SECRET: TEST_SECRET,
         },
     )
+
+
+@pytest.fixture
+def fake_relay(aioclient_mock: AiohttpClientMocker) -> FakeRelay:
+    """Return a fake relay answering at TEST_URL."""
+    return FakeRelay(aioclient_mock, TEST_URL)
