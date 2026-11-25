@@ -14,3 +14,7 @@ CLIENT_NAME: Final = "home-assistant"
 
 TURN_TIMEOUT: Final = 60.0
 SHORT_TIMEOUT: Final = 10.0
+
+SETUP_TEST_TEXT: Final = (
+    "This is a connection test from Home Assistant. Reply with one word."
+)
