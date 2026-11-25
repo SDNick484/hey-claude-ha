@@ -1,0 +1,37 @@
+[project]
+name = "hey-claude-ha"
+version = "0.1.0"
+description = "Home Assistant conversation agent for a hey-claude-relay"
+requires-python = ">=3.14.2"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest-homeassistant-custom-component==0.13.375",
+    # Requirements of the conversation component in Home Assistant 2026.10.4.
+    "gazetteer-matcher==1.1.0",
+    "hassil==3.12.1",
+    "home-assistant-intents==2026.10.6",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ASYNC"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components"]
+
+[tool.mypy]
+strict = true
+python_version = "3.14"
+files = ["custom_components"]
