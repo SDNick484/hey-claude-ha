@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
     area_registry as ar,
@@ -13,40 +12,12 @@ from homeassistant.helpers import (
 from homeassistant.helpers import (
     entity_registry as er,
 )
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.hey_claude.const import (
     CONF_AREA_PROFILES,
     CONF_DEFAULT_PROFILE,
 )
 from custom_components.hey_claude.profile import area_for_turn, resolve_profile
-
-SATELLITE = "assist_satellite.test_satellite"
-
-
-@pytest.fixture
-def satellite(
-    hass: HomeAssistant,
-    device_registry: dr.DeviceRegistry,
-    entity_registry: er.EntityRegistry,
-) -> tuple[str, str]:
-    """Return (device_id, entity_id) of a satellite with no areas."""
-    entry = MockConfigEntry(domain="test")
-    entry.add_to_hass(hass)
-    device = device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id, identifiers={("test", "sat")}
-    )
-    entity = entity_registry.async_get_or_create(
-        "assist_satellite",
-        "test",
-        "sat",
-        device_id=device.id,
-        suggested_object_id="test_satellite",
-        original_name="Assist satellite",
-        has_entity_name=True,
-    )
-    assert entity.entity_id == SATELLITE
-    return device.id, entity.entity_id
 
 
 async def test_area_from_satellite_entity(

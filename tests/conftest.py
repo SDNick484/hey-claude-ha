@@ -7,6 +7,8 @@ from typing import Any
 
 import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
@@ -25,6 +27,7 @@ from .fake_relay import FakeRelay
 TEST_URL = "https://relay.example.com"
 TEST_CLIENT_ID = "test-client-id.access"
 TEST_SECRET = "TEST-SECRET-6f1c"
+SATELLITE = "assist_satellite.test_satellite"
 
 
 @pytest.fixture(autouse=True)
@@ -60,3 +63,28 @@ def mock_config_entry() -> MockConfigEntry:
 def fake_relay(aioclient_mock: AiohttpClientMocker) -> FakeRelay:
     """Return a fake relay answering at TEST_URL."""
     return FakeRelay(aioclient_mock, TEST_URL)
+
+
+@pytest.fixture
+def satellite(
+    hass: HomeAssistant,
+    device_registry: dr.DeviceRegistry,
+    entity_registry: er.EntityRegistry,
+) -> tuple[str, str]:
+    """Return (device_id, entity_id) of a satellite with no areas."""
+    entry = MockConfigEntry(domain="test")
+    entry.add_to_hass(hass)
+    device = device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={("test", "sat")}
+    )
+    entity = entity_registry.async_get_or_create(
+        "assist_satellite",
+        "test",
+        "sat",
+        device_id=device.id,
+        suggested_object_id="test_satellite",
+        original_name="Assist satellite",
+        has_entity_name=True,
+    )
+    assert entity.entity_id == SATELLITE
+    return device.id, entity.entity_id

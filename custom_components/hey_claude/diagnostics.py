@@ -17,4 +17,7 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: HeyClaudeConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry, without the URL or credentials."""
-    return {"entry": async_redact_data(entry.as_dict(), TO_REDACT)}
+    return {
+        "entry": async_redact_data(entry.as_dict(), TO_REDACT),
+        "conversations_tracked": len(entry.runtime_data.relay_conversations),
+    }
