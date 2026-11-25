@@ -1,7 +1,7 @@
 # Hey Claude for Home Assistant
 
 A Home Assistant conversation agent that sends what you say to a
-[hey-claude-relay](https://github.com/SDNick484) and speaks its reply.
+hey-claude-relay and speaks its reply.
 
 A voice satellite hears you, Home Assistant turns speech into text, this
 integration posts the text to the relay, and Home Assistant speaks the
