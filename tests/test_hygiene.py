@@ -123,7 +123,13 @@ async def test_secret_and_words_never_logged(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
     everything = caplog.text
-    for private in (TEST_SECRET, NEW_SECRET, "WRONG-SECRET-x1", TEST_CLIENT_ID):
+    for private in (
+        TEST_SECRET,
+        NEW_SECRET,
+        "WRONG-SECRET-x1",
+        TEST_CLIENT_ID,
+        "relay.example.com",
+    ):
         assert private not in everything, private
 
     ours = "\n".join(

@@ -408,3 +408,34 @@ async def test_unexpected_exception_speaks_default(
 
     assert _speech(result) == DEFAULT_FALLBACK
     assert result.response.response_type is IntentResponseType.ERROR
+
+
+async def test_bug_in_profile_lookup_still_speaks(
+    hass: HomeAssistant, setup_entry: MockConfigEntry
+) -> None:
+    """A bug before the relay call still speaks."""
+    with patch(
+        "custom_components.hey_claude.conversation.area_for_turn",
+        side_effect=RuntimeError("bug"),
+    ):
+        result = await _say(hass, satellite_id=SATELLITE)
+
+    assert _speech(result) == DEFAULT_FALLBACK
+
+
+async def test_bug_while_ending_secret_conversation_still_refuses(
+    hass: HomeAssistant, setup_entry: MockConfigEntry, fake_relay: FakeRelay
+) -> None:
+    """Any failure while ending a passphrase conversation still refuses and forgets."""
+    fake_relay.queue_turn(Reply("What's the passphrase?", expect_secret=True))
+
+    with patch(
+        "custom_components.hey_claude.relay.RelayClient.end_conversation",
+        side_effect=RuntimeError("bug"),
+    ):
+        first = await _say(hass)
+    await _say(hass, "next", first.conversation_id)
+
+    assert _speech(first) == SECRET_REFUSED_LINE
+    assert first.continue_conversation is False
+    assert "conversation_id" not in fake_relay.turn_requests[1]
