@@ -10,7 +10,7 @@
           "client_secret": "Access client secret"
         },
         "data_description": {
-          "url": "The relay's base URL, for example https://relay.example.com.",
+          "url": "The relay's base address, including http or https at the start.",
           "client_id": "The client ID of the Cloudflare Access service token the relay allows.",
           "client_secret": "The client secret of that service token. Home Assistant stores it with this entry and never logs it."
         }
