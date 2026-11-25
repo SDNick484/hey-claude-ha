@@ -1,0 +1,61 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your relay",
+        "description": "Home Assistant checks the relay's health, then sends one test turn so a refused token is caught now.",
+        "data": {
+          "url": "Relay URL",
+          "client_id": "Access client ID",
+          "client_secret": "Access client secret"
+        },
+        "data_description": {
+          "url": "The relay's base address, including http or https at the start.",
+          "client_id": "The client ID of the Cloudflare Access service token the relay allows.",
+          "client_secret": "The client secret of that service token. Home Assistant stores it with this entry and never logs it."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Replace the Access token",
+        "description": "The relay or Cloudflare Access refused the stored service token. Enter a token the relay allows.",
+        "data": {
+          "client_id": "Access client ID",
+          "client_secret": "Access client secret"
+        },
+        "data_description": {
+          "client_id": "The client ID of the Cloudflare Access service token.",
+          "client_secret": "The client secret of that service token."
+        }
+      },
+      "reconfigure": {
+        "title": "Change the relay connection",
+        "description": "Leave the secret blank to keep the stored one.",
+        "data": {
+          "url": "Relay URL",
+          "client_id": "Access client ID",
+          "client_secret": "Access client secret"
+        },
+        "data_description": {
+          "url": "The relay's base URL.",
+          "client_id": "The client ID of the Cloudflare Access service token.",
+          "client_secret": "Leave blank to keep the stored secret."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the relay. Check the URL and that the relay is running.",
+      "invalid_auth": "Cloudflare Access or the relay refused the service token.",
+      "not_allowed": "The relay accepted the token but it is not allowed any profile.",
+      "invalid_url": "Enter an http or https URL.",
+      "relay_error": "The relay answered the test turn with an error. Check the relay's logs.",
+      "unknown": "Unexpected error. Check the Home Assistant log.",
+      "redirected": "The address redirects somewhere else. Enter the final address, usually starting with https.",
+      "not_relay": "Something answered at this address, but not like a hey-claude-relay. Check the URL."
+    },
+    "abort": {
+      "already_configured": "This relay is already set up.",
+      "reauth_successful": "The new token works and is saved.",
+      "reconfigure_successful": "The relay connection is updated."
+    }
+  }
+}
