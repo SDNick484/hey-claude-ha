@@ -57,5 +57,25 @@
       "reauth_successful": "The new token works and is saved.",
       "reconfigure_successful": "The relay connection is updated."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Relay profiles",
+        "description": "Profile names are free text: the relay owns the list. A turn uses its area's profile, else the default, else the token's first allowed profile.",
+        "data": {
+          "default_profile": "Default profile"
+        },
+        "data_description": {
+          "default_profile": "Used when the speaking device's area has no profile of its own. Leave blank to let the relay choose."
+        },
+        "sections": {
+          "rooms": {
+            "name": "Profile per area",
+            "description": "One field per Home Assistant area. Leave a field blank to use the default."
+          }
+        }
+      }
+    }
   }
 }

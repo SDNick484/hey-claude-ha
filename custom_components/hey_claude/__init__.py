@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util.limited_size_dict import LimitedSizeDict
 
-from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_URL
+from .const import (
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    CONF_URL,
+    CONVERSATION_MAP_SIZE,
+)
 from .relay import RelayClient
 
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [Platform.CONVERSATION]
 
 
 @dataclass
@@ -20,6 +26,10 @@ class HeyClaudeData:
     """What a loaded entry keeps at runtime."""
 
     client: RelayClient
+    # Home Assistant conversation ID -> relay conversation ID.
+    relay_conversations: LimitedSizeDict[str, str] = field(
+        default_factory=lambda: LimitedSizeDict(size_limit=CONVERSATION_MAP_SIZE)
+    )
 
 
 type HeyClaudeConfigEntry = ConfigEntry[HeyClaudeData]

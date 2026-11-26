@@ -45,6 +45,46 @@ credentials, and is never written to the log.
 - To change the URL or token yourself, open the integration's **⋮** menu and
   pick **Reconfigure**. Leave the secret blank to keep the stored one.
 
+## Create the "Claude" voice pipeline
+
+1. Go to **Settings → Voice assistants → Add assistant**.
+2. Name it **Claude**.
+3. **Conversation agent**: pick **Claude** (this integration).
+4. Turn on **Prefer handling commands locally**, so "turn on the lights" and
+   other simple commands stay in Home Assistant and never reach the relay.
+5. **Speech-to-text** and **Text-to-speech**: pick your engines, for example
+   local Whisper and Piper over Wyoming.
+6. Save.
+
+Then point a satellite at it: open the satellite's device page and set its
+**Assistant** (or a second assistant slot, if it has one) to **Claude**.
+
+## Profiles per room
+
+The relay decides what each profile may do; this integration only picks
+which profile a turn asks for.
+
+1. Put each satellite's device in its area (device page → ✏️ → **Area**).
+2. Open **Settings → Devices & services → Hey Claude → Configure**.
+3. Set a **Default profile**, and a profile for any area that needs its own.
+   Names are free text and must match the relay's. Leave a field blank to
+   use the default; leave the default blank to let the relay use the token's
+   first allowed profile.
+
+A conversation keeps the profile it started with. A satellite keeps one
+conversation going until five minutes pass without a turn.
+
+## Follow-up questions
+
+When Claude's reply ends in a question mark, Home Assistant asks the
+satellite to keep listening, so you can answer without the wake word. The
+answer goes straight to Claude, even with local handling on.
+
+This needs a satellite that honours Home Assistant's
+`continue_conversation` flag, such as ESPHome's `voice_assistant` (the
+Home Assistant Voice Preview Edition, for example). Wyoming and VoIP
+satellites need the wake word again.
+
 ## Diagnostics
 
 **⋮ → Download diagnostics** on the integration gives a file you can share

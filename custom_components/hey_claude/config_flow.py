@@ -7,8 +7,15 @@ from collections.abc import Mapping
 from typing import Any
 
 import probatio
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     TextSelector,
@@ -17,8 +24,10 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CONF_AREA_PROFILES,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_DEFAULT_PROFILE,
     CONF_URL,
     DOMAIN,
     SETUP_TEST_TEXT,
@@ -85,6 +94,12 @@ class HeyClaudeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Hey Claude."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> HeyClaudeOptionsFlow:
+        """Return the options flow."""
+        return HeyClaudeOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -221,4 +236,63 @@ class HeyClaudeConfigFlow(ConfigFlow, domain=DOMAIN):
                 },
             ),
             errors=errors,
+        )
+
+
+ROOMS = "rooms"
+
+
+class HeyClaudeOptionsFlow(OptionsFlow):
+    """Choose the default profile and a profile per area."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show one field for the default and one per area, by area name.
+
+        Profiles are stored by area ID, so renaming an area keeps its profile.
+        Areas that no longer exist are dropped when the form is saved.
+        """
+        areas = sorted(
+            ar.async_get(self.hass).async_list_areas(), key=lambda area: area.name
+        )
+        stored: dict[str, str] = self.config_entry.options.get(CONF_AREA_PROFILES, {})
+
+        if user_input is not None:
+            rooms: dict[str, str] = user_input.get(ROOMS, {})
+            area_profiles = {
+                area.id: profile
+                for area in areas
+                if (profile := rooms.get(area.name, "").strip())
+            }
+            return self.async_create_entry(
+                data={
+                    CONF_DEFAULT_PROFILE: user_input.get(
+                        CONF_DEFAULT_PROFILE, ""
+                    ).strip(),
+                    CONF_AREA_PROFILES: area_profiles,
+                }
+            )
+
+        fields: dict[Any, Any] = {
+            probatio.Optional(CONF_DEFAULT_PROFILE): TEXT_SELECTOR,
+        }
+        if areas:
+            fields[probatio.Required(ROOMS)] = section(
+                probatio.Schema(
+                    {probatio.Optional(area.name): TEXT_SELECTOR for area in areas}
+                ),
+                {"collapsed": False},
+            )
+        suggested: dict[str, Any] = {
+            CONF_DEFAULT_PROFILE: self.config_entry.options.get(
+                CONF_DEFAULT_PROFILE, ""
+            ),
+            ROOMS: {area.name: stored[area.id] for area in areas if area.id in stored},
+        }
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                probatio.Schema(fields), suggested
+            ),
         )
